@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password Strength Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0D1117;
+    --panel: #141B24;
+    --panel-2: #0F151D;
+    --border: #232D3A;
+    --text: #C9D1D9;
+    --muted: #7C8A98;
+    --teal: #5FC9BF;
+    --amber: #E8A23D;
+    --coral: #E5534B;
+    --seg-off: #1D2530;
+  }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F4F6F8;
+      --panel: #FFFFFF;
+      --panel-2: #FAFBFC;
+      --border: #DCE2E8;
+      --text: #1C2530;
+      --muted: #6B7684;
+      --seg-off: #E4E9ED;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6F8;
+    --panel: #FFFFFF;
+    --panel-2: #FAFBFC;
+    --border: #DCE2E8;
+    --text: #1C2530;
+    --muted: #6B7684;
+    --seg-off: #E4E9ED;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 56px 20px 80px;
+  }
+  main {
+    width: 100%;
+    max-width: 620px;
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0 0 36px;
+    max-width: 52ch;
+  }
+
+  .field-wrap {
+    position: relative;
+    margin-bottom: 18px;
+  }
+  #pw {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    padding: 16px 46px 16px 16px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  #pw:focus { border-color: var(--teal); }
+  #toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    cursor: pointer;
+    padding: 6px 8px;
+  }
+  #toggle:hover { color: var(--text); }
+  #toggle:focus-visible, #pw:focus-visible, button:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+  }
+
+  .meter-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .seg {
+    height: 6px;
+    flex: 1;
+    border-radius: 3px;
+    background: var(--seg-off);
+    transition: background 0.2s ease;
+  }
+  .meter-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 34px;
+  }
+  .meter-label strong {
+    font-weight: 600;
+  }
+  .verdict-weak strong { color: var(--coral); }
+  .verdict-fair strong { color: var(--amber); }
+  .verdict-strong strong { color: var(--teal); }
+
+  .bits {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  section {
+    margin-bottom: 30px;
+  }
+  h2 {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 14px;
+    letter-spacing: 0.01em;
+  }
+
+  .checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    padding: 2px 0;
+  }
+  .check-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+  }
+  .check-item.pass { color: var(--text); }
+  .check-item.fail { color: var(--muted); }
+  .check-item.warn-item { color: var(--amber); }
+
+  .suggestion-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .suggestion-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15.5px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .suggestion-row:last-child { border-bottom: none; }
+  .suggestion-row span { word-break: break-all; }
+  .copy-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--teal); }
+  .refresh-row {
+    margin-top: 12px;
+  }
+  #regen {
+    background: none;
+    border: none;
+    color: var(--teal);
+    font-size: 13.5px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    padding: 0;
+  }
+  #regen:hover { text-decoration: underline; }
+
+  .history-panel {
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .history-panel strong { color: var(--text); }
+  .history-controls {
+    margin-top: 10px;
+    display: flex;
+    gap: 14px;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+  .link-btn:hover { color: var(--text); }
+  .reuse-flag {
+    color: var(--coral);
+    font-weight: 600;
+  }
+
+  footer {
+    margin-top: 44px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  svg { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">password diagnostics</div>
+  <h1>How strong is your password?</h1>
+  <p class="sub">Type a password below to see its strength broken down — length, character variety, predictable patterns, and estimated crack time. Nothing you type leaves this page.</p>
+
+  <div class="field-wrap">
+    <input id="pw" type="password" autocomplete="new-password" spellcheck="false" placeholder="Start typing a password…">
+    <button id="toggle" type="button" aria-label="Show password">show</button>
+  </div>
+
+  <div class="meter-row" id="meterRow"></div>
+  <div class="meter-label" id="meterLabel">
+    <span>Enter a password to begin</span>
+    <span class="bits" id="bitsLabel"></span>
+  </div>
+
+  <section>
+    <h2>WHAT WE CHECKED</h2>
+    <div class="checklist" id="checklist"></div>
+  </section>
+
+  <section id="reuseSection" style="display:none;">
+    <h2>REUSE CHECK (LOCAL TO THIS BROWSER)</h2>
+    <div class="history-panel" id="historyPanel"></div>
+  </section>
+
+  <section>
+    <h2>STRONGER ALTERNATIVES</h2>
+    <div class="suggestion-box">
+      <div id="suggestionList"></div>
+      <div class="refresh-row"><button id="regen" type="button">Generate new suggestions</button></div>
+    </div>
+  </section>
+
+  <footer>
+    Strength is estimated locally using entropy and pattern heuristics — it isn't a guarantee against every attack. The reuse check stores only a one-way SHA-256 fingerprint of passwords you've tested in this browser's local storage, never the password itself, and never sends anything to a server. Use "Clear saved fingerprints" to remove that history.
+  </footer>
+</main>
+
+<script>
+(function() {
+  const pwInput = document.getElementById('pw');
+  const toggle = document.getElementById('toggle');
+  const meterRow = document.getElementById('meterRow');
+  const meterLabel = document.getElementById('meterLabel');
+  const bitsLabel = document.getElementById('bitsLabel');
+  const checklist = document.getElementById('checklist');
+  const suggestionList = document.getElementById('suggestionList');
+  const regenBtn = document.getElementById('regen');
+  const reuseSection = document.getElementById('reuseSection');
+  const historyPanel = document.getElementById('historyPanel');
+
+  const SEGMENTS = 5;
+  for (let i = 0; i < SEGMENTS; i++) {
+    const s = document.createElement('div');
+    s.className = 'seg';
+    meterRow.appendChild(s);
+  }
+  const segEls = Array.from(meterRow.children);
+
+  const COMMON_PASSWORDS = new Set([
+    "123456","password","123456789","12345678","12345","1234567","qwerty",
+    "abc123","password1","111111","123123","admin","letmein","welcome",
+    "monkey","login","princess","qwertyuiop","solo","passw0rd","starwars",
+    "dragon","master","hello","freedom","whatever","qazwsx","trustno1",
+    "iloveyou","football","baseball","superman","696969","batman","zaq1zaq1",
+    "shadow","michael","jennifer","hunter","fuckyou","sunshine","chocolate",
+    "flower","charlie","aa123456","donald","password123","1q2w3e4r","000000",
+    "121212","asdfghjkl","access","secret","summer","cheese","ninja",
+    "george","computer","internet","service","canada","ashley"
+  ]);
+
+  const KEYBOARD_ROWS = ["qwertyuiop","asdfghjkl","zxcvbnm","1234567890"];
+
+  function checkIconSVG(state) {
+    if (state === 'pass') {
+      return '<svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="var(--teal)" stroke-width="1.4"/><path d="M5.5 9.2l2.2 2.2 4.8-5" stroke="var(--teal)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    if (state === 'warn') {
+      return '<svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="var(--amber)" stroke-width="1.4"/><path d="M9 5.5v4.2" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="12.3" r="0.9" fill="var(--amber)"/></svg>';
+    }
+    return '<svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="var(--border)" stroke-width="1.4"/><path d="M6.2 6.2l5.6 5.6M11.8 6.2l-5.6 5.6" stroke="var(--muted)" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  }
+
+  function hasSequential(pw) {
+    const lower = pw.toLowerCase();
+    for (let i = 0; i < lower.length - 2; i++) {
+      const a = lower.charCodeAt(i), b = lower.charCodeAt(i+1), c = lower.charCodeAt(i+2);
+      if (b - a === 1 && c - b === 1) return true;
+      if (a - b === 1 && b - c === 1) return true;
+    }
+    for (const row of KEYBOARD_ROWS) {
+      for (let i = 0; i < row.length - 2; i++) {
+        const chunk = row.slice(i, i + 3);
+        if (lower.includes(chunk)) return true;
+      }
+    }
+    return false;
+  }
+
+  function hasRepeats(pw) {
+    return /(.)\1\1/.test(pw);
+  }
+
+  function charsetSize(pw) {
+    let size = 0;
+    if (/[a-z]/.test(pw)) size += 26;
+    if (/[A-Z]/.test(pw)) size += 26;
+    if (/[0-9]/.test(pw)) size += 10;
+    if (/[^a-zA-Z0-9]/.test(pw)) size += 32;
+    return size || 1;
+  }
+
+  function entropyBits(pw) {
+    if (!pw) return 0;
+    const cs = charsetSize(pw);
+    return pw.length * Math.log2(cs);
+  }
+
+  function crackTimeLabel(bits) {
+    // assume 10 billion guesses/sec (fast offline attack on a weak hash)
+    const guesses = Math.pow(2, bits) / 2;
+    const seconds = guesses / 1e10;
+    if (seconds < 1) return "instantly";
+    const units = [
+      [60, "seconds"], [60, "minutes"], [24, "hours"], [365, "days"],
+      [100, "years"], [1000, "centuries"]
+    ];
+    let value = seconds, i = 0;
+    let labelUnit = "seconds";
+    if (value < 60) return Math.round(value) + " seconds";
+    value /= 60; labelUnit = "minutes";
+    if (value < 60) return Math.round(value) + " minutes";
+    value /= 60; labelUnit = "hours";
+    if (value < 24) return Math.round(value) + " hours";
+    value /= 24; labelUnit = "days";
+    if (value < 365) return Math.round(value) + " days";
+    value /= 365; labelUnit = "years";
+    if (value < 1e6) return Math.round(value).toLocaleString() + " years";
+    return "trillions of years";
+  }
+
+  function analyze(pw) {
+    const len = pw.length;
+    const hasLower = /[a-z]/.test(pw);
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasDigit = /[0-9]/.test(pw);
+    const hasSymbol = /[^a-zA-Z0-9]/.test(pw);
+    const varietyCount = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+    const isCommon = COMMON_PASSWORDS.has(pw.toLowerCase());
+    const sequential = hasSequential(pw);
+    const repeated = hasRepeats(pw);
+    const bits = entropyBits(pw);
+
+    let score = 0;
+    if (len >= 8) score += 1;
+    if (len >= 12) score += 1;
+    if (varietyCount >= 3) score += 1;
+    if (varietyCount === 4) score += 1;
+    if (!isCommon && !sequential && !repeated) score += 1;
+    if (isCommon) score = 0;
+
+    return { len, hasLower, hasUpper, hasDigit, hasSymbol, varietyCount, isCommon, sequential, repeated, bits, score };
+  }
+
+  function render(pw) {
+    if (!pw) {
+      segEls.forEach(s => s.style.background = 'var(--seg-off)');
+      meterLabel.innerHTML = '<span>Enter a password to begin</span><span class="bits"></span>';
+      meterLabel.className = 'meter-label';
+      checklist.innerHTML = '';
+      reuseSection.style.display = 'none';
+      return;
+    }
+
+    const r = analyze(pw);
+    const filled = Math.max(1, r.score);
+    let color = 'var(--coral)', verdictClass = 'verdict-weak', word = 'Weak';
+    if (r.score >= 5) { color = 'var(--teal)'; verdictClass = 'verdict-strong'; word = 'Strong'; }
+    else if (r.score >= 3) { color = 'var(--amber)'; verdictClass = 'verdict-fair'; word = 'Fair'; }
+
+    segEls.forEach((s, i) => {
+      s.style.background = i < filled ? color : 'var(--seg-off)';
+    });
+
+    meterLabel.className = 'meter-label ' + verdictClass;
+    meterLabel.innerHTML = `<span><strong>${word}</strong> · est. crack time: ${crackTimeLabel(r.bits)}</span><span class="bits">${r.bits.toFixed(0)} bits</span>`;
+
+    const items = [];
+    items.push({
+      state: r.len >= 12 ? 'pass' : (r.len >= 8 ? 'warn' : 'fail'),
+      text: r.len >= 12
+        ? `${r.len} characters — good length`
+        : r.len >= 8
+          ? `${r.len} characters — acceptable, but 12+ is safer`
+          : `${r.len} characters — too short (aim for 12+)`
+    });
+    items.push({
+      state: r.varietyCount === 4 ? 'pass' : (r.varietyCount === 3 ? 'warn' : 'fail'),
+      text: r.varietyCount === 4
+        ? 'Uses uppercase, lowercase, numbers, and symbols'
+        : `Only ${r.varietyCount} of 4 character types used (${[
+            r.hasLower && 'lowercase', r.hasUpper && 'uppercase', r.hasDigit && 'numbers', r.hasSymbol && 'symbols'
+          ].filter(Boolean).join(', ') || 'none'})`
+    });
+    items.push({
+      state: r.isCommon ? 'fail' : 'pass',
+      text: r.isCommon ? 'Matches a known, commonly-used password' : 'Not found in the common-password list'
+    });
+    items.push({
+      state: r.sequential ? 'warn' : 'pass',
+      text: r.sequential ? 'Contains a sequential pattern (e.g. "abc", "123", "qwerty")' : 'No obvious sequential or keyboard-walk patterns'
+    });
+    items.push({
+      state: r.repeated ? 'warn' : 'pass',
+      text: r.repeated ? 'Contains a repeated character run (e.g. "aaa")' : 'No long repeated-character runs'
+    });
+
+    checklist.innerHTML = items.map(it =>
+      `<div class="check-item ${it.state === 'pass' ? 'pass' : it.state === 'warn' ? 'warn-item' : 'fail'}">${checkIconSVG(it.state)}<span>${it.text}</span></div>`
+    ).join('');
+
+    handleReuseCheck(pw);
+  }
+
+  // --- Reuse check via hashed local history (per-viewer, stored only in this browser) ---
+  async function sha256Hex(text) {
+    const enc = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem('pwa_history_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function saveHistory(list) {
+    try { localStorage.setItem('pwa_history_v1', JSON.stringify(list)); } catch (e) {}
+  }
+
+  let reuseDebounce;
+  function handleReuseCheck(pw) {
+    reuseSection.style.display = 'block';
+    clearTimeout(reuseDebounce);
+    reuseDebounce = setTimeout(async () => {
+      const hash = await sha256Hex(pw);
+      const history = loadHistory();
+      const seenBefore = history.includes(hash);
+      const count = history.length;
+
+      historyPanel.innerHTML = seenBefore
+        ? `<span class="reuse-flag">This exact password matches one you've tested before in this browser.</span> Reusing passwords across accounts (or reusing your own old ones) means a single leak compromises every place it's used.`
+        : `<strong>Not seen before</strong> in this browser's ${count} tracked fingerprint${count === 1 ? '' : 's'}. Only a one-way hash is stored — never the password itself.`;
+
+      historyPanel.innerHTML += `
+        <div class="history-controls">
+          <button class="link-btn" id="saveFingerprint" type="button">Save this fingerprint</button>
+          <button class="link-btn" id="clearHistory" type="button">Clear saved fingerprints</button>
+        </div>`;
+
+      document.getElementById('saveFingerprint').onclick = () => {
+        const h = loadHistory();
+        if (!h.includes(hash)) h.push(hash);
+        saveHistory(h);
+        handleReuseCheck(pwInput.value);
+      };
+      document.getElementById('clearHistory').onclick = () => {
+        saveHistory([]);
+        handleReuseCheck(pwInput.value);
+      };
+    }, 250);
+  }
+
+  // --- Suggestions ---
+  const WORDS = ["harbor","ember","quartz","meadow","lantern","copper","willow","granite","falcon","cinder",
+    "orbit","thistle","marble","ripple","canyon","sable","juniper","boulder","frost","amber2"];
+
+  function randomInt(max) { return Math.floor(Math.random() * max); }
+
+  function generatePassphrase() {
+    const w1 = WORDS[randomInt(WORDS.length)];
+    const w2 = WORDS[randomInt(WORDS.length)];
+    const num = randomInt(90) + 10;
+    const symbols = "!@#$%&*?";
+    const sym = symbols[randomInt(symbols.length)];
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    return `${cap(w1)}${sym}${cap(w2)}${num}`;
+  }
+
+  function generateRandomString(len) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?";
+    let out = "";
+    for (let i = 0; i < len; i++) out += chars[randomInt(chars.length)];
+    return out;
+  }
+
+  function renderSuggestions() {
+    const suggestions = [
+      { label: "Memorable passphrase", value: generatePassphrase() },
+      { label: "Memorable passphrase", value: generatePassphrase() },
+      { label: "High-entropy random", value: generateRandomString(16) }
+    ];
+    suggestionList.innerHTML = suggestions.map(s =>
+      `<div class="suggestion-row"><span>${s.value}</span><button class="copy-btn" data-val="${s.value}" type="button">copy</button></div>`
+    ).join('');
+    suggestionList.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(btn.getAttribute('data-val'));
+          const original = btn.textContent;
+          btn.textContent = 'copied';
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        } catch (e) {
+          btn.textContent = 'select & copy manually';
+        }
+      });
+    });
+  }
+
+  regenBtn.addEventListener('click', renderSuggestions);
+  renderSuggestions();
+
+  toggle.addEventListener('click', () => {
+    const isPw = pwInput.type === 'password';
+    pwInput.type = isPw ? 'text' : 'password';
+    toggle.textContent = isPw ? 'hide' : 'show';
+    toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+  });
+
+  pwInput.addEventListener('input', () => render(pwInput.value));
+  render('');
+})();
+</script>
+</body>
+</html>
