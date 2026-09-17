@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛡️ VulnScan — Vulnerability Scanner (Mini Project)</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3;
+    --muted:#8b949e; --accent:#00e68a; --crit:#f85149; --high:#f0883e;
+    --med:#d29922; --low:#58a6ff; --info:#8b949e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+  header{text-align:center;margin-bottom:18px}
+  header h1{font-size:1.9rem;letter-spacing:1px}
+  header h1 span{color:var(--accent)}
+  header p{color:var(--muted);font-size:.9rem;margin-top:4px}
+  .disclaimer{max-width:960px;margin:0 auto 18px;background:#2d1b1b;border:1px solid #672e2e;
+    border-left:4px solid var(--crit);padding:10px 14px;border-radius:8px;font-size:.85rem;color:#ffb4b0}
+  .controls{max-width:960px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .controls input,.controls select{background:#0d1117;border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-size:.9rem;outline:none}
+  .controls input:focus,.controls select:focus{border-color:var(--accent)}
+  #target{flex:1;min-width:200px}
+  #ports{width:230px}
+  .btn{padding:10px 18px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.9rem}
+  .btn-primary{background:var(--accent);color:#03130c}
+  .btn-primary:hover{filter:brightness(1.1)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--text)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .grid{max-width:960px;margin:14px auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+  .card .num{font-size:1.7rem;font-weight:700}
+  .card .lbl{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+  .panel{max-width:960px;margin:14px auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .panel h2{font-size:.95rem;padding:12px 16px;border-bottom:1px solid var(--border);color:var(--accent)}
+  #log{height:220px;overflow-y:auto;padding:12px 16px;font-family:Consolas,monospace;font-size:.8rem;line-height:1.6}
+  .log-info{color:var(--muted)} .log-ok{color:var(--accent)} .log-warn{color:var(--med)} .log-bad{color:var(--crit)}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th{color:var(--muted);text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;padding:10px 16px;border-bottom:1px solid var(--border)}
+  td{padding:10px 16px;border-bottom:1px solid #21262d;vertical-align:top}
+  .chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;color:#000}
+  .chip-Critical{background:var(--crit);color:#fff} .chip-High{background:var(--high);color:#000}
+  .chip-Medium{background:var(--med)} .chip-Low{background:var(--low);color:#000} .chip-Info{background:var(--info);color:#000}
+  .empty{color:var(--muted);text-align:center;padding:28px;font-size:.85rem}
+  .actions{max-width:960px;margin:0 auto 30px;display:flex;gap:10px;justify-content:flex-end}
+  footer{max-width:960px;margin:0 auto;color:var(--muted);font-size:.75rem;text-align:center;line-height:1.6}
+  .sim{color:var(--muted);font-style:italic;font-size:.72rem}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ Vuln<span>Scan</span></h1>
+  <p>Vulnerability Scanner — Mini Project (open ports · weak configs · outdated software · report)</p>
+</header>
+
+<div class="disclaimer">
+  ⚠️ <b>Authorized use only.</b> Scan only systems you own or have explicit permission to test.
+  Browsers cannot open raw TCP sockets or read cross-origin headers — checks marked <i>simulated</i>
+  run against a demo engine; real scanning needs the Python version of this tool.
+</div>
+
+<section class="controls">
+  <input id="target" placeholder="Target e.g. 127.0.0.1 or scanme.nmap.org" spellcheck="false">
+  <select id="mode">
+    <option value="demo">Demo mode (full simulated scan)</option>
+    <option value="browser">Browser mode (best-effort, real reachability)</option>
+  </select>
+  <input id="ports" placeholder="Ports e.g. 21,22,80,443,8080">
+  <button class="btn btn-primary" id="scanBtn" onclick="startScan()">▶ Start Scan</button>
+  <button class="btn btn-ghost" onclick="resetAll()">Clear</button>
+</section>
+
+<div class="grid">
+  <div class="card"><div class="num" id="cScanned">0</div><div class="lbl">Ports Scanned</div></div>
+  <div class="card"><div class="num" id="cOpen">0</div><div class="lbl">Open / Reachable</div></div>
+  <div class="card"><div class="num" id="cFind">0</div><div class="lbl">Findings</div></div>
+  <div class="card"><div class="num" id="cHigh" style="color:var(--high)">0</div><div class="lbl">Critical + High</div></div>
+</div>
+
+<div class="panel">
+  <h2>▤ Scan Console</h2>
+  <div id="log"><div class="log-info">Ready. Enter a target and press Start Scan.</div></div>
+</div>
+
+<div class="panel">
+  <h2>⚠ Findings Report</h2>
+  <table>
+    <thead><tr><th>Severity</th><th>Finding</th><th>Evidence</th><th>Remediation</th></tr></thead>
+    <tbody id="findingsBody">
+      <tr><td colspan="4" class="empty">No findings yet — run a scan.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="dlBtn" disabled onclick="exportReport()">⬇ Download HTML Report</button>
+</div>
+
+<footer>
+  Demo mode is deterministic per target (same target → same results) and clearly labeled <i>simulated</i>.<br>
+  This tool is educational and is not a replacement for Nmap, OpenVAS or Nessus.
+</footer>
+
+<script>
+/* ================= State & constants ================= */
+const state = { target:"", mode:"demo", findings:[], scanned:0, open:0, busy:false };
+
+const DEFAULT_PORTS = "21,22,25,80,110,143,443,445,3306,3389,8080";
+const HTTP_PORTS    = [80,443,8080,8443,8000,3000,5000,8888];   // real-probable browser ports
+
+/* Tiny "vulnerability database" (demo only — not a real CVE feed) */
+const VULN_VERSIONS = {
+  apache : ["2.2.34","2.4.49","2.4.50"],
+  openssh: ["7.2","7.6","8.2"],
+  vsftpd : ["2.3.4"]
+};
+const SECURITY_HEADERS = {
+  "strict-transport-security":"High",
+  "content-security-policy":"Medium",
+  "x-content-type-options":"Low",
+  "x-frame-options":"Low"
+};
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const esc = s => String(s).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function hashStr(s){ let h=7; for(const c of s) h=(h*31 + c.charCodeAt(0))>>>0; return h; }
+const r = (t,mod) => hashStr(t) % mod;               // deterministic pseudo-random
+
+/* ================= Logging ================= */
+function log(msg, cls="log-info"){
+  const el = document.createElement("div");
+  el.className = cls;
+  const t = new Date().toLocaleTimeString();
+  el.textContent = `[${t}] ${msg}`;
+  $("log").appendChild(el);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+/* ================= Findings ================= */
+function addFinding(sev,title,evidence,rem,simulated=true){
+  state.findings.push({sev,title,evidence,rem,simulated});
+}
+const SEV_ORDER = {Critical:0,High:1,Medium:2,Low:3,Info:4};
+function renderFindings(){
+  const body = $("findingsBody");
+  if(!state.findings.length){
+    body.innerHTML = `<tr><td colspan="4" class="empty">No findings yet — run a scan.</td></tr>`;
+    return;
+  }
+  state.findings.sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);
+  body.innerHTML = state.findings.map(f=>`
+    <tr>
+      <td><span class="chip chip-${f.sev}">${f.sev}</span></td>
+      <td><b>${esc(f.title)}</b>${f.simulated?'<br><span class="sim">(simulated check)</span>':''}</td>
+      <td>${esc(f.evidence)}</td>
+      <td>${esc(f.rem)}</td>
+    </tr>`).join("");
+}
+function updateSummary(){
+  $("cScanned").textContent = state.scanned;
+  $("cOpen").textContent    = state.open;
+  $("cFind").textContent    = state.findings.length;
+  $("cHigh").textContent    = state.findings.filter(f=>f.sev==="Critical"||f.sev==="High").length;
+}
+
+/* ================= DEMO MODE (simulated engine) ================= */
+function demoIsOpen(target, port){
+  const t = target + ":" + port;
+  const chance = [80,443,22,8080].includes(port) ? 55 : 25;
+  return r(t,100) < chance;
+}
+function demoService(port){
+  const map = {
+    21:  {name:"vsftpd",  banner:"220 (vsFTPd 2.3.4)"},
+    22:  {name:"openssh", banner:"SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.8"},
+    25:  {name:"postfix", banner:"220 mail ESMTP Postfix"},
+    80:  {name:"apache",  banner:"Server: Apache/2.4.49 (Unix)"},
+    110: {name:"pop3",    banner:"+OK POP3 ready"},
+    143: {name:"imap",    banner:"* OK IMAP4rev1 ready"},
+    443: {name:"nginx",   banner:"Server: nginx/1.18.0"},
+    3306:{name:"mysql",   banner:"5.7.32-0ubuntu0.18.04.1 MySQL"},
+    8080:{name:"tomcat",  banner:"Server: Apache-Coyote/1.1 Tomcat/7.0.109"}
+  };
+  return map[port] || {name:"unknown", banner:""};
+}
+async function scanDemo(target, ports){
+  log("Mode: DEMO — results are simulated for learning/reporting purposes.","log-warn");
+  for(const port of ports){
+    await sleep(140 + r(target+port,200));
+    state.scanned++;
+    if(demoIsOpen(target,port)){
+      state.open++;
+      const svc = demoService(port);
+      log(`  [OPEN] ${port}/tcp — banner: ${svc.banner || "n/a"}`,"log-ok");
+      demoBannerChecks(port, svc.banner);
+    } else {
+      log(`  [closed] ${port}/tcp`);
+    }
+    updateSummary();
+  }
+  // Weak-configuration checks on the simulated services
+  if(demoIsOpen(target,80) || demoIsOpen(target,8080)) demoHeaderChecks(target);
+  if(demoIsOpen(target,443)) demoTlsCheck(target);
+  if(demoIsOpen(target,21))  demoFtpChecks(target);
+}
+function demoBannerChecks(port, banner){
+  const low = banner.toLowerCase();
+  for(const [product, versions] of Object.entries(VULN_VERSIONS)){
+    if(low.includes(product) || low.includes(product==="openssh"?"openssh":product)){
+      for(const v of versions){
+        if(banner.includes(v)){
+          addFinding("High",
+            `Potentially outdated ${product} ${v}`,
+            `Port ${port}: "${banner}"`,
+            `Upgrade ${product} and review vendor security advisories.`);
+        }
+      }
+    }
+  }
+}
+function demoHeaderChecks(target){
+  const missing = Object.keys(SECURITY_HEADERS).filter((h,i)=> r(target+h,10) < 6);
+  if(!missing.length) { log("HTTP security headers look OK (simulated).","log-ok"); return; }
+  for(const h of missing){
+    addFinding(SECURITY_HEADERS[h],
+      `Missing HTTP security header: ${h}`,
+      `Response from http://${target}/ did not include "${h}".`,
+      `Configure the "${h}" response header at the web server / CDN.`);
+  }
+  log(`  [HTTP] ${missing.length} security header(s) missing (simulated).`,"log-warn");
+}
+function demoTlsCheck(target){
+  if(r(target+"tls",10) < 4){
+    addFinding("High","Deprecated TLS version accepted (TLS 1.0)",
+      `Server accepted a TLS 1.0 handshake.`,
+      "Disable TLS 1.0/1.1 and require TLS 1.2 or newer.");
+    log("  [TLS] TLS 1.0 accepted (simulated).","log-bad");
+  } else {
+    log("  [TLS] TLS 1.0/1.1 rejected — good (simulated).","log-ok");
+  }
+}
+function demoFtpChecks(target){
+  addFinding("High","Anonymous FTP login enabled",
+    "Logged in as anonymous without a password.",
+    "Disable anonymous FTP or restrict it to a read-only area.");
+  if(r(target+"ftp",10) < 5){
+    addFinding("Critical","Weak/default credentials accepted",
+      "FTP accepted login admin / admin.",
+      "Remove default accounts and enforce strong passwords.");
+    log("  [FTP] weak credentials accepted (simulated).","log-bad");
+  }
+  log("  [FTP] anonymous login allowed (simulated).","log-warn");
+}
+
+/* ================= BROWSER MODE (best-effort real probing) ================= */
+function fetchTimeout(url, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(()=>ctl.abort(), ms);
+  return fetch(url, {mode:"no-cors", signal:ctl.signal}).finally(()=>clearTimeout(t));
+}
+async function probePort(host, port, ms=1600){
+  const scheme = (port===443||port===8443) ? "https" : "http";
+  const url = `${scheme}://${host}:${port}/`;
+  try{
+    await fetchTimeout(url, ms);
+    return {port, status:"reachable", url};
+  }catch(e){
+    // Secondary signal: an <img> load/error can still indicate a live server
+    const ok = await new Promise(res=>{
+      const img = new Image(); let done=false;
+      const fin = v => { if(!done){done=true;res(v)} };
+      const t = setTimeout(()=>fin(false), ms);
+      img.onload = img.onerror = ()=>{clearTimeout(t);fin(true);}; // error ≠ closed
+      img.src = url + "?_=" + Date.now();
+    });
+    return {port, status: ok ? "possibly-reachable" : "no-response", url};
+  }
+}
+async function scanBrowser(target, ports){
+  log("Mode: BROWSER — best-effort reachability only (no raw TCP in browsers).","log-warn");
+  const testable = ports.filter(p => HTTP_PORTS.includes(p));
+  const skipped  = ports.filter(p => !HTTP_PORTS.includes(p));
+  if(skipped.length) log(`Skipped ${skipped.join(", ")} — browsers can't probe non-HTTP ports reliably.`,"log-info");
+
+  for(const port of testable){
+    state.scanned++;
+    log(`Probing ${target}:${port} ...`);
+    const res = await probePort(target, port);
+    if(res.status==="reachable"){
+      state.open++;
+      log(`  [REACHABLE] ${res.url} responded (opaque — headers unreadable).`,"log-ok");
+      addFinding("Info", `Service reachable on port ${port}`,
+        `${res.url} responded to a best-effort probe.`,
+        "Run the Python scanner against this port for banners, headers and TLS checks.", false);
+    } else if(res.status==="possibly-reachable"){
+      state.open++;
+      log(`  [MAYBE] ${res.url} — inconclusive signal.`,"log-warn");
+    } else {
+      log(`  [no response] ${port}/tcp (may be closed, blocked, or mixed-content).`);
+    }
+    updateSummary();
+  }
+  log("Browser mode cannot read headers, banners or TLS versions (CORS/security limits).","log-warn");
+  addFinding("Info","Browser-mode limitations apply",
+    "TCP port state, banners, security headers, TLS versions and FTP checks require the Python version of this tool.",
+    "See the Python script accompanying this mini project.", false);
+}
+
+/* ================= Report export ================= */
+function exportReport(){
+  const f = state.findings.slice().sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);
+  const rows = f.map(x=>`
+    <tr>
+      <td><span class="c c${x.sev}">${x.sev}</span></td>
+      <td><b>${esc(x.title)}</b>${x.simulated?'<br><i class="sim">simulated</i>':''}</td>
+      <td>${esc(x.evidence)}</td>
+      <td>${esc(x.rem)}</td>
+    </tr>`).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Vulnerability Report — ${esc(state.target)}</title>
+<style>
+ body{font-family:'Segoe UI',sans-serif;max-width:860px;margin:30px auto;padding:0 16px;color:#1a1a2e}
+ h1{border-bottom:3px solid #00e68a;padding-bottom:8px}
+ .meta{background:#f4f4f8;padding:12px 16px;border-radius:8px;font-size:.9rem;margin:14px 0}
+ table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:16px}
+ th{background:#1a1a2e;color:#fff;padding:10px;text-align:left;font-size:.75rem;text-transform:uppercase}
+ td{padding:10px;border-bottom:1px solid #ddd;vertical-align:top}
+ .c{padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700;color:#fff}
+ .cCritical{background:#f85149}.cHigh{background:#f0883e;color:#000}.cMedium{background:#d29922;color:#000}
+ .cLow{background:#58a6ff;color:#000}.cInfo{background:#8b949e}
+ .sim{color:#999;font-size:.72rem}
+ .warn{background:#2d1b1b;color:#ffb4b0;padding:10px 14px;border-radius:8px;font-size:.82rem}
+</style></head><body>
+<h1>🛡️ Vulnerability Report</h1>
+<div class="meta">
+ <b>Target:</b> ${esc(state.target)} &nbsp;|&nbsp;
+ <b>Mode:</b> ${state.mode} &nbsp;|&nbsp;
+ <b>Ports scanned:</b> ${state.scanned} &nbsp;|&nbsp;
+ <b>Open/Reachable:</b> ${state.open} &nbsp;|&nbsp;
+ <b>Generated:</b> ${new Date().toLocaleString()}
+</div>
+<p class="warn">⚠️ Educational mini-project output. Browser/demo checks are not a substitute for a real
+TCP vulnerability scan (use Nmap / OpenVAS / Nessus). Scan only authorized systems.</p>
+<table><tr><th>Severity</th><th>Finding</th><th>Evidence</th><th>Remediation</th></tr>${rows || '<tr><td colspan="4">No findings.</td></tr>'}</table>
+</body></html>`;
+  const blob = new Blob([html], {type:"text/html"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `vulnerability_report_${state.target.replace(/[^a-z0-9.-]/gi,"_")}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  log("Report downloaded.","log-ok");
+}
+
+/* ================= Main ================= */
+function parsePorts(str){
+  const clean = str.trim() || DEFAULT_PORTS;
+  const list = [...new Set(clean.split(",").map(p=>parseInt(p.trim(),10)).filter(p=>p>0 && p<65536))];
+  return list.sort((a,b)=>a-b).slice(0,40);
+}
+async function startScan(){
+  if(state.busy) return;
+  const target = $("target").value.trim();
+  if(!target || !/^[a-zA-Z0-9.-]+$/.test(target)){
+    log("✖ Enter a valid hostname or IP (e.g., 127.0.0.1).","log-bad"); return;
+  }
+  state.busy = true; $("scanBtn").disabled = true; $("dlBtn").disabled = true;
+  Object.assign(state, {target, mode:$("mode").value, findings:[], scanned:0, open:0});
+  renderFindings(); updateSummary();
+  $("log").innerHTML = "";
+  log(`═══ Starting ${state.mode} scan of ${target} ═══`,"log-ok");
+
+  const ports = parsePorts($("ports").value);
+  log(`Port list: ${ports.join(", ")}`);
+
+  try{
+    if(state.mode==="demo") await scanDemo(target, ports);
+    else                    await scanBrowser(target, ports);
+  }catch(e){
+    log(`✖ Scan error: ${e.message}`,"log-bad");
+  }
+
+  log(`═══ Done — ${state.scanned} port(s) scanned, ${state.findings.length} finding(s). ═══`,"log-ok");
+  renderFindings(); updateSummary();
+  state.busy = false; $("scanBtn").disabled = false;
+  $("dlBtn").disabled = false;
+}
+function resetAll(){
+  if(state.busy) return;
+  Object.assign(state,{findings:[],scanned:0,open:0});
+  $("log").innerHTML = '<div class="log-info">Cleared. Ready.</div>';
+  renderFindings(); updateSummary(); $("dlBtn").disabled = true;
+}
+$("ports").value = DEFAULT_PORTS;
+</script>
+</body>
+</html>
