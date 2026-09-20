@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PhishGuard — Phishing Email Detection (Scikit-learn)</title>
+<link rel="stylesheet" href="https://pyscript.net/latest/core.css">
+<script type="module" src="https://pyscript.net/latest/core.js"></script>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#121a2b; --panel2:#0e1626; --line:rgba(255,255,255,.08);
+    --ink:#e8eef7; --muted:#8fa3bd; --accent:#22d3ee; --bad:#ef4444; --ok:#22c55e;
+    --warn:#f59e0b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:radial-gradient(1100px 700px at 80% -10%,#122036,var(--bg));
+       color:var(--ink);min-height:100vh;padding:26px 18px 60px}
+  .wrap{max-width:1060px;margin:0 auto}
+
+  header{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .logo{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+        font-size:26px;background:linear-gradient(135deg,#22d3ee,#3b82f6);box-shadow:0 8px 24px rgba(34,211,238,.35)}
+  header h1{font-size:24px;letter-spacing:.5px}
+  header h1 b{color:var(--accent)}
+  header p{font-size:12px;color:var(--muted);margin-top:2px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:12px}
+
+  #status{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+  .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);
+           animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #console{margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+           font-family:Consolas,monospace;font-size:12px;color:#7dd3fc;max-height:150px;overflow-y:auto;line-height:1.8}
+
+  #results{display:none}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .metric{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;
+          animation:pop .5s ease}
+  .metric .v{font-size:30px;font-weight:800;color:var(--accent)}
+  .metric .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+
+  .cvrow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .cvrow .nm{width:150px;font-size:12.5px;color:var(--ink);flex-shrink:0}
+  .cvbar{flex:1;height:22px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+  .cvbar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#22d3ee);
+           transition:width 1s ease}
+  .cvrow .vv{width:110px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+
+  table.cm{width:100%;border-collapse:collapse;margin-top:6px}
+  table.cm td,table.cm th{border:1px solid var(--line);padding:12px;text-align:center;font-size:14px}
+  table.cm th{color:var(--muted);font-size:11.5px;text-transform:uppercase}
+  td.ok{background:rgba(34,197,94,.15);color:var(--ok);font-weight:800;font-size:20px}
+  td.bad{background:rgba(239,68,68,.15);color:var(--bad);font-weight:800;font-size:20px}
+
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11.5px;
+      overflow-x:auto;color:#c9d7ea;line-height:1.7}
+
+  .fir{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12.5px}
+  .fir .nm{width:170px;flex-shrink:0;color:var(--muted)}
+  .fir .bar{flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+  .fir .bar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#ef4444)}
+  .fir .vv{width:52px;text-align:right;color:var(--ink)}
+
+  textarea{width:100%;min-height:150px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+           color:var(--ink);padding:14px;font-family:inherit;font-size:13.5px;resize:vertical;outline:none}
+  textarea:focus{border-color:var(--accent)}
+  button.btn{background:linear-gradient(90deg,#22d3ee,#3b82f6);color:#04121f;border:0;padding:12px 26px;
+             border-radius:999px;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:.5px}
+  button.btn:disabled{opacity:.4;cursor:not-allowed}
+  button.btn:not(:disabled):hover{transform:translateY(-1px)}
+  .samples{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .samples button{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);
+                  padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer}
+  .samples button:hover{color:var(--ink);border-color:var(--accent)}
+
+  #verdict{display:none;margin-top:16px;border-radius:16px;padding:20px;text-align:center;animation:pop .4s ease}
+  #verdict.phish{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45)}
+  #verdict.safe{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.45)}
+  #verdict .big{font-size:30px;font-weight:900;letter-spacing:2px}
+  #verdict.phish .big{color:var(--bad)} #verdict.safe .big{color:var(--ok)}
+  #verdict .conf{color:var(--muted);font-size:13px;margin-top:4px}
+  .pbar{height:14px;border-radius:999px;background:linear-gradient(90deg,var(--ok),#eab308,var(--bad));
+        margin:14px auto 6px;max-width:440px;position:relative}
+  .pbar .marker{position:absolute;top:-5px;width:4px;height:24px;background:#fff;border-radius:2px;transition:left .6s ease}
+  #signals{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .sig{font-size:11.5px;background:rgba(255,255,255,.07);border:1px solid var(--line);padding:4px 11px;border-radius:999px;color:var(--muted)}
+
+  #pyFail{display:none;position:fixed;inset:0;z-index:99;background:rgba(5,8,14,.94);
+          align-items:center;justify-content:center;text-align:center;padding:24px}
+  #pyFail .box{max-width:480px;background:var(--panel);border:1px solid var(--bad);border-radius:16px;padding:28px}
+  details{margin-top:14px;color:var(--muted);font-size:12.5px}
+  details summary{cursor:pointer;color:var(--accent);font-weight:600}
+  details pre{margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">&#128737;</div>
+    <div>
+      <h1>Phish<b>Guard</b> &mdash; Phishing Email Detection</h1>
+      <p>Scikit-learn trained live in your browser &middot; TF-IDF + URL/keyword features &middot; 3-model comparison</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="status"><div class="spinner"></div><span id="statusText">Loading Python runtime + scikit-learn (first load ~30-90s, please wait)...</span></div>
+    <div id="console"><div>&gt; initializing...</div></div>
+  </div>
+
+  <div id="results">
+    <div class="card">
+      <h2>Model Performance (held-out test set)</h2>
+      <div class="metrics" id="metrics"></div>
+      <div class="grid2">
+        <div><h2 style="margin-top:16px">Model Comparison (5-fold grouped CV)</h2><div id="cvBars"></div></div>
+        <div><h2 style="margin-top:16px">Confusion Matrix</h2><div id="cmBox"></div></div>
+      </div>
+      <div class="grid2">
+        <div><h2>Classification Report</h2><div id="report"></div></div>
+        <div><h2>Top Email Features (importance)</h2><div id="feat"></div></div>
+      </div>
+      <details><summary>Formulas used (for viva)</summary>
+        <pre>TF-IDF(t,d) = tf(t,d) x log(N / df(t))          -- word weights
+phishing probability p = sigmoid(w.x + b)        -- Logistic Regression
+Precision = TP/(TP+FP)  Recall = TP/(TP+FN)  F1 = 2PR/(P+R)
+CV: 5-fold grouped cross-validation (no template shared between folds)
+Split: by template GROUP so near-duplicate augmented emails never
+       appear in both train and test (prevents data leakage)</pre>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Analyze Any Email</h2>
+      <textarea id="emailInput" placeholder="Paste an email here (subject + body)..."></textarea>
+      <div class="samples">
+        <button data-s="0">Phishing sample</button>
+        <button data-s="1">BEC / CEO fraud sample</button>
+        <button data-s="2">Legitimate sample</button>
+      </div>
+      <div style="margin-top:14px"><button class="btn" id="analyzeBtn">ANALYZE EMAIL</button></div>
+      <div id="verdict">
+        <div class="big" id="vLabel"></div>
+        <div class="conf" id="vConf"></div>
+        <div class="pbar"><div class="marker" id="vMark" style="left:50%"></div></div>
+        <div class="sig" style="display:inline-block;background:none;border:0;color:var(--muted);font-size:11px">left = safe &nbsp;&middot;&nbsp; right = phishing</div>
+        <div id="signals"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="pyFail">
+  <div class="box">
+    <h2 style="color:var(--bad);margin-bottom:10px">Python runtime did not load</h2>
+    <p style="color:var(--muted);font-size:13.5px;line-height:1.8">Check your internet connection, and make sure you opened the page through a local server
+    (<b>python -m http.server 8000</b> &rarr; http://localhost:8000/phishing.html), not by double-clicking the file (file:// is blocked by browsers).</p>
+  </div>
+</div>
+
+<script>
+  window.PY_READY = false;
+  setTimeout(function(){
+    if(!window.PY_READY){ document.getElementById("pyFail").style.display = "flex"; }
+  }, 60000);
+</script>
+
+<!-- ================== PYTHON EMBEDDED IN HTML (PyScript) ================== -->
+<script type="py" config='{"packages":["numpy","scikit-learn"]}'>
+import asyncio
+import random
+import re
+import numpy as np
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score, classification_report,
+                             confusion_matrix, f1_score, precision_score,
+                             recall_score)
+from sklearn.model_selection import GroupKFold, cross_val_score
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import MaxAbsScaler
+from sklearn.svm import LinearSVC
+
+from pyscript import document, when, window
+
+random.seed(42)
+np.random.seed(42)
+STATE = {"pipe": None}
+
+# ---------------------------------------------------------------- pools ----
+NAMES = ["James Carter","Priya Sharma","David Miller","Anita Desai",
+         "Robert King","Sarah Wilson","Rahul Verma","Emily Clark",
+         "Michael Brown","Neha Gupta","John Anderson","Lisa Fernandes"]
+AMOUNTS = ["$250.00","$499.99","$1,200.00","$2,450.00","$5,000.00",
+           "$12,750.00","$850,000.00","$3,999.00"]
+PHISH_URLS = ["http://paypal-secure-verify.com/login?id=8842",
+              "http://192.168.44.7/account/reset",
+              "http://netflix-billing-update.info/renew",
+              "http://amazon-refund-claim.top/claim",
+              "http://secure-chase-alerts.xyz/signin",
+              "http://appleid-support.ru/unlock",
+              "http://dhl-parcel-fee.online/pay",
+              "http://wallet-verify-connect.site/unlock"]
+LEGIT_URLS = ["https://www.shopmore.com/orders",
+              "https://www.bluedart.com/track",
+              "https://accounts.google.com/signin",
+              "https://portal.example.com/documents",
+              "https://www.sunrisehotel.com/bookings"]
+COMPANIES = ["ShopMore","BlueDart Logistics","Sunrise Hotel Group",
+             "LearnHub Academy","NovaBank","CityCare Clinic"]
+CODES = ["48210","77349","91022","55817","30466","88295","11940"]
+DATES = ["12 March 2025","28 April 2025","5 May 2025","17 June 2025",
+         "3 July 2025","21 August 2025"]
+CITIES = ["Lagos","Mumbai","Frankfurt","Manila","Moscow","Jakarta"]
+ITEMS = ["Wireless Mouse","HP LaserJet Toner","Samsung Galaxy Charger",
+         "Office Chair","USB-C Dock","Bluetooth Headset"]
+
+# ---------------------------------------------------- phishing templates ----
+PHISHING = [
+ ("ph_verify","URGENT: Verify Your Account Within 24 Hours",
+  "Dear {name}, we detected unusual activity on your account. Verify within 24 hours at {url} by confirming your username, password and card details, or your account will be permanently terminated. Security Team"),
+ ("ph_paypal","Your Password Has Expired - Act Now",
+  "Your password has expired. Renew immediately at {url} to avoid account limitation. Accounts not updated within 24 hours will be restricted. PayPal Accounts Department"),
+ ("ph_bank","ALERT: Suspicious Sign-In From {city}",
+  "We blocked a login from {city} on {date}. Confirm your identity now at {url} by providing your account number, PIN and the OTP we sent. Your funds are at risk. NovaBank Security"),
+ ("ph_netflix","Payment Declined - Update Billing Now",
+  "We could not process your membership payment of {amount}. Update your billing information within 24 hours at {url} or your account will be suspended. Netflix Billing Team"),
+ ("ph_refund","Refund Approved - Claim Your {amount} Now",
+  "You are eligible for a {amount} refund on your recent order. Claims close in 48 hours. Enter your card number and bank details at {url} to receive it. Refund Department"),
+ ("ph_invoice","Overdue Invoice #{code} - Legal Action Pending",
+  "Your invoice of {amount} is seriously overdue and will be escalated to our legal team within 48 hours. Settle immediately or open the attached Invoice_{code}.zip for full details. Accounts Receivable"),
+ ("ph_lottery","CONGRATULATIONS! You Won {amount}",
+  "Your email was selected in our international lottery. To claim {amount}, send your full name, phone number and bank account plus a small processing fee within 72 hours. Act now! Lottery Coordinator"),
+ ("ph_job","Work From Home - Earn {amount} Weekly",
+  "Earn {amount} per week processing payments from home. No experience needed. Send your resume and bank details and pay a one-time registration fee to start today. Reply immediately! HR Manager"),
+ ("ph_crypto","GUARANTEED {amount} Returns In 7 Days",
+  "Our AI trading system doubles every deposit in one week with zero risk. Send {amount} in bitcoin today; this offer closes at midnight. Act immediately! Investment Advisor"),
+ ("ph_parcel","Package On Hold - Pay {amount} Delivery Fee",
+  "Your package could not be delivered because the {amount} delivery fee is unpaid. Pay at {url} within 48 hours or the parcel (contents: iPhone, invoice #{code}) returns to sender. Courier Services"),
+ ("ph_itreset","IT: Your Mailbox Password Expires Today",
+  "All staff must reset passwords today per new security policy. Use the portal {url}; if the portal fails, reply with your current username and password. IT Administrator"),
+ ("ph_share","{name} Shared 'Salary_Review_2025.docm'",
+  "A secured document was shared with you. Open it at {url} and sign in with your email password to unlock the protected file. The link expires in 24 hours. Secure Document Cloud"),
+ ("ph_tax","Tax Refund Notification - {amount} Pending",
+  "You are eligible for a {amount} tax refund. Submit the form at {url} with your card number, date of birth and SSN before {date} or the refund is cancelled. Tax Refund Department"),
+ ("ph_wallet","Verify Your Wallet To Unlock {amount}",
+  "An unverified balance of {amount} is locked. Connect your wallet and enter your 12-word seed phrase at {url} within 24 hours or the funds are frozen. Wallet Support"),
+ ("ph_signin","Unusual Sign-In - Secure Account Now",
+  "Someone signed in from {city} using your password. Secure your account immediately at {url} by entering your password and the one-time code. Delay may cause permanent loss. Security Center"),
+ ("ph_bec","RE: URGENT - Are You At Your Desk?",
+  "I am in a board meeting and cannot call. Buy {amount} in gift cards for client appreciation and email me the codes today. Do not discuss with anyone. - Sent from my iPhone"),
+]
+
+# ------------------------------------------------- legitimate templates ----
+LEGIT = [
+ ("lg_order","Your Order #{code} Is Confirmed",
+  "Hi {name}, your order #{code} ({item}) is confirmed. Total {amount} charged to card ending 4821. Track anytime at {lurl}. No action needed. {company} Customer Care"),
+ ("lg_ship","Your Package Has Shipped - Tracking {code}",
+  "Your {item} was dispatched via {company} and arrives on {date}. Track at {lurl}. Reply if you have questions about the delivery. Shipping Team"),
+ ("lg_passwd","Your Password Was Changed",
+  "Your password was changed on {date} at 4:32 PM from a recognized device. If this was you, no action is required. Account Security"),
+ ("lg_statement","Your Monthly Statement Is Ready",
+  "Your statement for {date} is available. Closing balance {amount}. Download it in the app under Documents. We never ask for your PIN or OTP. {company}"),
+ ("lg_receipt","Receipt For Your Purchase",
+  "We received {amount} for '{item}'. The GST invoice is attached as a PDF. Thank you for shopping with {company}. Billing Team"),
+ ("lg_appt","Reminder: Appointment On {date}",
+  "This is a reminder of your check-up with Dr. Sharma on {date} at 10:30 AM. Reply CONFIRM or call the clinic to reschedule. CityCare Reception"),
+ ("lg_flight","Your Itinerary For Travel On {date}",
+  "Flight AI-804 departs at 09:15 on {date}. Your e-ticket is attached. Online check-in opens 24 hours before departure. No payment is due. Airline Reservations"),
+ ("lg_hotel","Booking Confirmed - Sunrise Hotel",
+  "Reservation #{code} at Sunrise Hotel, {city} is confirmed. Total {amount} paid in full. Free cancellation until 48 hours before check-in. Sunrise Hotel"),
+ ("lg_course","Welcome To Data Structures 101",
+  "Your enrollment is confirmed. Classes begin on {date}. Materials are on the course portal after sign-in. Good luck with the semester! LearnHub Team"),
+ ("lg_paid","Payment Received - Invoice #{code}",
+  "We received your payment of {amount} for invoice #{code}. A receipt is attached and your account is fully settled. No action needed. Accounts Team"),
+ ("lg_otp","Your One-Time Code: {code}",
+  "Use code {code} to finish signing in. It expires in 10 minutes. We will never call or email asking for this code. Security Team"),
+ ("lg_reset","Password Reset Requested",
+  "You requested a password reset on {date}. If this was you, continue from the app after signing in; the link expires in 30 minutes. If you did not request it, ignore this email and nothing changes. Account Security"),
+ ("lg_delivery","Out For Delivery Today",
+  "Your parcel with the {item} arrives between 2 PM and 6 PM today. No signature or payment is required. Live tracking is in the app. {company}"),
+ ("lg_salary","Your Payslip For {date}",
+  "Your salary of {amount} was credited to your account ending 7702. The detailed payslip is attached. Deductions follow company policy. HR Department"),
+]
+
+VARIANTS = 12   # variants per template -> 30 templates x 12 = 360 emails
+
+def fill(text):
+    return text.format(name=random.choice(NAMES), amount=random.choice(AMOUNTS),
+                       url=random.choice(PHISH_URLS), lurl=random.choice(LEGIT_URLS),
+                       company=random.choice(COMPANIES), code=random.choice(CODES),
+                       date=random.choice(DATES), city=random.choice(CITIES),
+                       item=random.choice(ITEMS))
+
+def build_dataset():
+    rows = []
+    for gid, subj, body in PHISHING:
+        for _ in range(VARIANTS):
+            rows.append({"t": "Subject: " + fill(subj) + "\n\n" + fill(body),
+                         "y": 1, "g": gid})
+    for gid, subj, body in LEGIT:
+        for _ in range(VARIANTS):
+            rows.append({"t": "Subject: " + fill(subj) + "\n\n" + fill(body),
+                         "y": 0, "g": gid})
+    random.shuffle(rows)
+    return rows
+
+def grouped_split(rows, seed=42):
+    rng = random.Random(seed)
+    train, test = [], []
+    for lab in (0, 1):
+        groups = sorted({r["g"] for r in rows if r["y"] == lab})
+        rng.shuffle(groups)
+        n_test = max(1, int(round(len(groups) * 0.2)))
+        tg = set(groups[:n_test])
+        for r in rows:
+            if r["y"] == lab:
+                (test if r["g"] in tg else train).append(r)
+    rng.shuffle(train); rng.shuffle(test)
+    return train, test
+
+# --------------------------------------------- feature engineering (14) ----
+SUSPICIOUS_TLDS = (".tk",".xyz",".top",".info",".club",".biz",".ru",".cn",
+                   ".online",".site",".click")
+URGENCY = ("urgent","immediately","act now","expires","expiring","final warning",
+           "last warning","last chance","24 hours","48 hours","72 hours","deadline")
+MONEY = ("$","lottery","prize","winner","won","jackpot","refund","gift card",
+         "bonus","million","inheritance")
+CRED = ("password","otp","pin","cvv","seed phrase","security question",
+        "card number","bank account","routing number","ssn","login details")
+THREAT = ("suspend","terminated","deactivate","permanently","legal action",
+          "locked","blocked","will be deleted","account closure")
+FEATURE_NAMES = ["url_count","ip_based_url","at_in_url","long_url","hyphen_domain",
+                 "suspicious_tld","http_links","domain_dots","urgency_words",
+                 "money_words","credential_words","threat_words","attachment_ref",
+                 "text_length_k"]
+
+class TextFeatureExtractor(BaseEstimator, TransformerMixin):
+    URL_RE = re.compile(r"(?:https?://|www\.)[^\s\"'>]+", re.I)
+    IP_RE = re.compile(r"https?://\d{1,3}(?:\.\d{1,3}){3}", re.I)
+    def fit(self, X, y=None): return self
+    def transform(self, X):
+        return np.array([self._f(t) for t in X], dtype=np.float64)
+    def _f(self, text):
+        low = text.lower()
+        urls = self.URL_RE.findall(text)
+        doms = [u.split("//")[-1].split("/")[0] for u in urls]
+        return [len(urls),
+                len(self.IP_RE.findall(text)),
+                int(any("@" in u for u in urls)),
+                int(any(len(u) > 75 for u in urls)),
+                sum(1 for d in doms if "-" in d),
+                sum(1 for u in urls if any(t in u.lower() for t in SUSPICIOUS_TLDS)),
+                len(re.findall(r"http://", text, re.I)),
+                max((d.count(".") for d in doms), default=0),
+                sum(1 for w in URGENCY if w in low),
+                sum(1 for w in MONEY if w in low),
+                sum(1 for w in CRED if w in low),
+                sum(1 for w in THREAT if w in low),
+                int(any(m in low for m in ("attached",".zip",".docm",".exe"))),
+                len(text) / 1000.0]
+
+MODELS = {
+    "Logistic Regression": LogisticRegression(max_iter=2000, random_state=42),
+    "Linear SVM":          LinearSVC(max_iter=5000, random_state=42),
+    "Naive Bayes":         MultinomialNB(alpha=0.5),
+}
+
+def build_pipeline(model):
+    return Pipeline([
+        ("features", FeatureUnion([
+            ("word_tfidf", TfidfVectorizer(lowercase=True, stop_words="english",
+                                           ngram_range=(1, 2), min_df=1,
+                                           sublinear_tf=True)),
+            ("char_tfidf", TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5),
+                                           min_df=2, sublinear_tf=True)),
+            ("numeric", Pipeline([("extract", TextFeatureExtractor()),
+                                  ("scale", MaxAbsScaler())])),
+        ])),
+        ("clf", model),
+    ])
+
+def phishing_score(pipe, texts):
+    if hasattr(pipe, "predict_proba"):
+        return pipe.predict_proba(texts)[:, 1]
+    d = pipe.decision_function(texts)
+    return 1.0 / (1.0 + np.exp(-d))
+
+# ---------------------------------------------------------- UI helpers ----
+def esc(s):
+    return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+
+def log(msg):
+    d = document.createElement("div")
+    d.textContent = "> " + msg
+    box = document.getElementById("console")
+    box.appendChild(d)
+    box.scrollTop = box.scrollHeight
+
+def set_status(msg, done=False):
+    document.getElementById("statusText").textContent = msg
+    if done:
+        document.querySelector("#status .spinner").style.display = "none"
+
+SAMPLES = [
+ "Subject: Your Apple ID Has Been Locked\n\nWe detected a sign-in from Moscow. Unlock your account within 24 hours at http://appleid-support.ru/unlock by confirming your password and card number, or the account will be permanently deleted.",
+ "Subject: RE: URGENT - Wire Transfer Today\n\nI am traveling and cannot take calls. Please process the attached invoice of $49,500 to the new bank account in this email and confirm. Keep this confidential until the deal is announced. - Sent from my iPhone",
+ "Subject: Your Order 88295 Has Shipped\n\nGood news! Your Samsung Galaxy Charger was dispatched today and arrives by 3 July 2025. Track your parcel at https://www.bluedart.com/track/88295. No action or payment is required.",
+]
+
+# ------------------------------------------------- button: analyze mail ----
+@when("click", "#analyzeBtn")
+def analyze(event):
+    pipe = STATE["pipe"]
+    if pipe is None:
+        log("Model is still training - please wait a moment.")
+        return
+    text = document.getElementById("emailInput").value.strip()
+    v = document.getElementById("verdict")
+    if not text:
+        v.style.display = "block"
+        v.className = "phish"
+        document.getElementById("vLabel").textContent = "PLEASE PASTE AN EMAIL FIRST"
+        document.getElementById("vConf").textContent = ""
+        return
+    p = float(phishing_score(pipe, [text])[0])
+    is_phish = p >= 0.5
+    conf = p if is_phish else 1.0 - p
+    v.style.display = "block"
+    v.className = "phish" if is_phish else "safe"
+    document.getElementById("vLabel").textContent = "PHISHING" if is_phish else "SAFE"
+    document.getElementById("vConf").textContent = "Confidence: {:.1%}  (phishing probability {:.1%})".format(conf, p)
+    document.getElementById("vMark").style.left = "{:.1%}".format(p)
+
+    ex = TextFeatureExtractor()
+    f = ex.transform([text])[0]
+    urls = ex.URL_RE.findall(text)
+    sigs = ["URLs found: {}".format(len(urls))]
+    if f[1] > 0: sigs.append("IP-based URL detected")
+    if f[2] > 0: sigs.append("URL contains '@' symbol")
+    if f[5] > 0: sigs.append("Suspicious TLD in link")
+    if f[8] > 0: sigs.append("Urgency words: {}".format(int(f[8])))
+    if f[9] > 0: sigs.append("Money bait words: {}".format(int(f[9])))
+    if f[10] > 0: sigs.append("Credential requests: {}".format(int(f[10])))
+    if f[11] > 0: sigs.append("Threat words: {}".format(int(f[11])))
+    if f[12] > 0: sigs.append("Attachment reference")
+    box = document.getElementById("signals")
+    box.innerHTML = "".join('<span class="sig">' + esc(s) + "</span>" for s in sigs)
+    log("Analyzed pasted email -> {} ({:.1%} confidence)".format(
+        "PHISHING" if is_phish else "SAFE", conf))
+
+@when("click", ".samples button")
+def load_sample(event):
+    idx = int(event.target.getAttribute("data-s"))
+    document.getElementById("emailInput").value = SAMPLES[idx]
+
+# -------------------------------------------------------------- main ----
+async def main():
+    try:
+        set_status("Building dataset...")
+        await asyncio.sleep(0.05)
+        rows = build_dataset()
+        train, test = grouped_split(rows)
+        X_tr = [r["t"] for r in train]; y_tr = np.array([r["y"] for r in train])
+        g_tr = [r["g"] for r in train]
+        X_te = [r["t"] for r in test];  y_te = np.array([r["y"] for r in test])
+        n_phish = sum(r["y"] for r in rows)
+        log("Dataset: {} emails ({} phishing / {} safe), 30 templates".format(
+            len(rows), n_phish, len(rows) - n_phish))
+        log("Grouped split: {} train / {} test (no template shared)".format(len(train), len(test)))
+
+        set_status("Cross-validating 3 models (grouped 5-fold)...")
+        await asyncio.sleep(0.05)
+        cv = GroupKFold(n_splits=5)
+        scores_by_model = {}
+        for name, model in MODELS.items():
+            sc = cross_val_score(build_pipeline(model), X_tr, y_tr,
+                                 groups=g_tr, cv=cv, scoring="accuracy")
+            scores_by_model[name] = sc
+            log("CV  {:<22s} accuracy = {:.4f} +/- {:.4f}".format(name, sc.mean(), sc.std()))
+            await asyncio.sleep(0.05)
+        best_name = max(scores_by_model, key=lambda k: scores_by_model[k].mean())
+        log("Best model selected: " + best_name)
+
+        set_status("Training final model on full training set...")
+        await asyncio.sleep(0.05)
+        best_pipe = build_pipeline(MODELS[best_name])
+        best_pipe.fit(X_tr, y_tr)
+        y_pred = best_pipe.predict(X_te)
+        acc = accuracy_score(y_te, y_pred)
+        prec = precision_score(y_te, y_pred, zero_division=0)
+        rec = recall_score(y_te, y_pred, zero_division=0)
+        f1 = f1_score(y_te, y_pred, zero_division=0)
+        cm = confusion_matrix(y_te, y_pred)
+        log("Test accuracy: {:.2%} | precision {:.2%} | recall {:.2%} | F1 {:.2%}".format(acc, prec, rec, f1))
+
+        set_status("Rendering results...")
+        await asyncio.sleep(0.05)
+
+        document.getElementById("metrics").innerHTML = (
+            '<div class="metric"><div class="v">{:.1%}</div><div class="l">Accuracy</div></div>'
+            '<div class="metric"><div class="v">{:.1%}</div><div class="l">Precision</div></div>'
+            '<div class="metric"><div class="v">{:.1%}</div><div class="l">Recall</div></div>'
+            '<div class="metric"><div class="v">{:.1%}</div><div class="l">F1 Score</div></div>'
+        ).format(acc, prec, rec, f1)
+
+        bars = ""
+        for name, sc in scores_by_model.items():
+            m = float(sc.mean())
+            bars += ('<div class="cvrow"><span class="nm">' + name + '</span>'
+                     '<div class="cvbar"><i style="width:' + str(round(m * 100, 1)) + '%"></i></div>'
+                     '<span class="vv">{:.4f}</span></div>').format(m)
+        document.getElementById("cvBars").innerHTML = bars
+
+        tn, fp, fn, tp = [int(x) for x in cm.ravel()]
+        document.getElementById("cmBox").innerHTML = (
+            '<table class="cm"><tr><th></th><th>Pred Safe</th><th>Pred Phish</th></tr>'
+            '<tr><th>Actual Safe</th><td class="ok">' + str(tn) + '</td><td class="bad">' + str(fp) + '</td></tr>'
+            '<tr><th>Actual Phish</th><td class="bad">' + str(fn) + '</td><td class="ok">' + str(tp) + '</td></tr></table>'
+            '<p style="font-size:11.5px;color:var(--muted);margin-top:8px">Green = correct predictions &middot; Red = mistakes</p>')
+
+        document.getElementById("report").innerHTML = "<pre>" + esc(classification_report(
+            y_te, y_pred, target_names=["Safe", "Phishing"], zero_division=0)) + "</pre>"
+
+        rf = RandomForestClassifier(n_estimators=150, random_state=42)
+        rf.fit(TextFeatureExtractor().transform(X_tr), y_tr)
+        imp = rf.feature_importances_
+        order = np.argsort(imp)[::-1][:8]
+        fhtml = ""
+        for idx in order:
+            fhtml += ('<div class="fir"><span class="nm">' + FEATURE_NAMES[idx] + '</span>'
+                      '<div class="bar"><i style="width:' + str(round(float(imp[idx]) * 100 * 4, 1)) + '%"></i></div>'
+                      '<span class="vv">' + str(round(float(imp[idx]), 3)) + '</span></div>')
+        document.getElementById("feat").innerHTML = fhtml
+
+        STATE["pipe"] = best_pipe
+        set_status("Model ready ({} - {:.1%} accuracy). Paste an email below or click a sample.".format(best_name, acc), done=True)
+        document.getElementById("results").style.display = "block"
+        log("READY - analyzer enabled.")
+        window.PY_READY = True
+    except Exception as e:
+        log("ERROR: " + str(e))
+        set_status("Training failed - see the log above.")
+        window.PY_READY = True
+
+await main()
+</script>
+<!-- ======================= END OF EMBEDDED PYTHON ======================= -->
+</body>
+</html>
